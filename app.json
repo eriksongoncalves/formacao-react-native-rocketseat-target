@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "target",
+    "slug": "target",
+    "version": "1.0.0",
+    "android": {
+      "package": "com.eriksongoncalves.target",
+      "edgeToEdgeEnabled": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.eriksongoncalves.target"
+    },
+    "plugins": ["expo-router"],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6ec50288-0f10-4453-b4bc-4a1cb9cafe1e"
+      }
+    }
+  }
+}
