@@ -1,44 +1,89 @@
-import { View } from "react-native";
-import { router } from "expo-router";
+import { useCallback, useState } from "react";
+import { Alert, StatusBar, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
 
-import { HomeHeader } from "@/components/HomeHeader";
-import { Target } from "@/components/Target";
-import { List } from "@/components/List";
 import { Button } from "@/components/Button";
-
-const summary = {
-  total: "R$ 2.680,00",
-  input: { label: "Entradas", value: "R$ 6.184,90" },
-  output: { label: "Saídas", value: "-R$ 883,65" },
-};
-
-const targets = [
-  {
-    id: "1",
-    name: "Apple Watch",
-    percentage: "50%",
-    current: "R$ 580,00",
-    target: "R$ 1.790,00",
-  },
-  {
-    id: "2",
-    name: "Comprar uma cadeira ergonômica",
-    percentage: "75%",
-    current: "R$ 900,00",
-    target: "R$ 1.200,00",
-  },
-  {
-    id: "3",
-    name: "Comprar uma cadeira ergonômica",
-    percentage: "75%",
-    current: "R$ 1.200,00",
-    target: "R$ 3.000,00",
-  },
-];
+import { HomeHeader, HomeHeaderProps } from "@/components/HomeHeader";
+import { List } from "@/components/List";
+import { Loading } from "@/components/Loading";
+import { Target, TargetProps } from "@/components/Target";
+import { useTargetDatabase } from "@/database/useTargetDatabase";
+import { useTransactionsDatabase } from "@/database/useTransactionsDatabase";
+import { numberToCurrency } from "@/utils/numberToCurrency";
 
 export default function Index() {
+  const [summary, setSummary] = useState<HomeHeaderProps>();
+  const [isFetching, setIsFetching] = useState(true);
+  const [targets, setTargets] = useState<TargetProps[]>([]);
+
+  const targetDatabase = useTargetDatabase();
+  const transactionsDatabase = useTransactionsDatabase();
+
+  async function fetchTargets(): Promise<TargetProps[]> {
+    try {
+      const response = await targetDatabase.listBySavedValue();
+      return response.map((item) => ({
+        id: String(item.id),
+        name: item.name,
+        current: numberToCurrency(item.current),
+        percentage: item.percentage.toFixed(0) + "%",
+        target: numberToCurrency(item.amount),
+      }));
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível carregar as metas.");
+      console.log(error);
+    }
+  }
+
+  async function fetchSummary(): Promise<HomeHeaderProps> {
+    try {
+      const response = await transactionsDatabase.summary();
+
+      return {
+        total: numberToCurrency(response.input + response.output),
+        input: {
+          label: "Entradas",
+          value: numberToCurrency(response.input),
+        },
+        output: {
+          label: "Saídas",
+          value: numberToCurrency(response.output),
+        },
+      };
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível carregar o resumo.");
+      console.log(error);
+    }
+  }
+
+  async function fetchData() {
+    const targetDataPromise = fetchTargets();
+    const dataSummaryPromise = fetchSummary();
+
+    const [targetData, dataSummary] = await Promise.all([
+      targetDataPromise,
+      dataSummaryPromise,
+    ]);
+
+    setTargets(targetData);
+    setSummary(dataSummary);
+
+    setIsFetching(false);
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
+
+  if (isFetching) {
+    return <Loading />;
+  }
+
   return (
     <View style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" />
       <HomeHeader data={summary} />
 
       <List
